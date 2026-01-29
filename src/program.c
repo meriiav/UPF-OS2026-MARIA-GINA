@@ -28,25 +28,38 @@
         return sum;
     }
 
-    //long long process_text(int fd, int bufferSize){
-    //    long long sum = 0;
-    //    CircularBuffer cb;
-        // if(buffer_init(&cb,bufferSize)!=0){
-        //     perror("buffer_init");
-        //     return 0;
-        // }
+    long long process_text(int fd, int bufferSize){
+
+       long long sum = 0;
+       CircularBuffer cb;
+
+        if(buffer_init(&cb,bufferSize)!=0){
+            perror("buffer_init");
+            return 0;
+        }
         
-        // unsigned char circbuf*=malloc(bufferSize);
-        // if(!circbuf){
-        //     perror("malloc");
-        //     return 0;
-
-        // }
-
-        // ssize_t=bytesRead;
-        // EOF=0;
-
-    //}
+        unsigned char circbuf;
+        ssize_t bytes;
+        while(1){
+            bytes = read(fd, &circbuf, 1);
+            if (bytes==0){
+                if (buffer_used_bytes(&cb)>0){
+                    sum+=buffer_read_number(&cb, ',', 1);
+                }
+                break;
+            }
+            if (bytes<0){
+                perror("read");
+                break;
+            }
+            buffer_push(&cb, circbuf);
+            if (circbuf ==','){
+                sum+=buffer_read_number(&cb,',', 0);
+            }
+        }
+        buffer_deallocate(&cb);
+        return sum;
+    }
 
     int main(int argc, char* argv[]){
         const char* file = "test_small.dat";
