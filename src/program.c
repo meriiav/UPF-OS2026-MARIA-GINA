@@ -3,6 +3,7 @@
     #include <stdlib.h>
     #include <fcntl.h>
     #include <unistd.h>
+    #include <string.h>
     #include "circularBuffer.h"
 
     long long process_binary(int fd, int bufferSize){
@@ -94,19 +95,37 @@
     
 
     int main(int argc, char* argv[]){
-        const char* file = "int_text_small.txt";
-        int fd;
-        fd = open(file, O_RDONLY);
+        const char *mode=argv[1];
+        const char *path=argv[2];
+        int bufferSize=atoi(argv[3]);
+        
+        if (argc < 4) {
+            fprintf(stderr, "%s <binary|text> <path> <bufferSize>\n", argv[0]);
+            return 1;
+    }
 
-        if (fd<0){
+
+        int fd=open(path,O_RDONLY);
+        if(fd<0){
             perror("open");
             return 1;
         }
-        printf("File abierto: fd= %d\n",fd);
-        printf("%lld\n",process_text(fd,1024));
 
+        
+        long long sum;
+        if (strcmp(mode, "binary") == 0) {
+            sum = process_binary(fd, bufferSize);
+        } else if (strcmp(mode, "text") == 0) {
+            sum = process_text(fd, bufferSize);
+        } else {
+            fprintf(stderr, "Invalid mode: %s\n", mode);
+            close(fd);
+            return 1;
+        }
+
+        printf("%lld\n", sum);
         close(fd);
         return 0;
-        
     }
-    
+
+        
