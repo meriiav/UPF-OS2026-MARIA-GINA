@@ -44,64 +44,54 @@
 
 
     long long process_text(int fd, int bufferSize){
-        long long sum = 0;
+        unsigned int sum = 0;  // 32-bit accumulator
         CircularBuffer circbuf;
-        if(buffer_init(&circbuf,bufferSize)!=0){
+        if(buffer_init(&circbuf, bufferSize) != 0){
             perror("buffer_init");
             return 0;
-            }
+        }
 
         unsigned char character;
         ssize_t bytes;
 
-
         while(1){
             bytes = read(fd, &character, 1);
-            if (bytes==0){
-                int size=buffer_size_next_element(&circbuf,',',1);
-                if(size!=-1){
-                    char str[64]; //
-                    int i=0;
-                    while(buffer_used_bytes(&circbuf)>0){
-                        str[i++]=buffer_pop(&circbuf);
-                    }
-                    str[i]='\0';
-                    sum+=atoll(str);
-                    }
-                    break;
-                }
+            if (bytes < 0){ perror("read"); break; }
+            if (bytes == 0) break;
 
-
-            if (bytes<0){
-                perror("read");
-                break;
+            if (buffer_free_bytes(&circbuf) > 0){ 
+                buffer_push(&circbuf, character);
             }
+            while (1){
+                int size = buffer_size_next_element(&circbuf, ',', 0);
+                if (size <= 0) break;
 
-            if (buffer_free_bytes(&circbuf)>0){
-                buffer_push(&circbuf,character);
+                char str[size];
+                for (int i = 0; i < size; i++)
+                    str[i] = buffer_pop(&circbuf);
+
+                int len = size;
+                if (str[len - 1] == ',') len--;
+                str[len] = '\0';
+
+                sum += (unsigned int)atoll(str);  // 32-bit wrap
             }
-
-            if(character==','){
-                char str[64];
-                int i=0;
-
-                while(buffer_used_bytes(&circbuf)>0){
-                    char character2 = buffer_pop(&circbuf);
-                    if(character2!=','){
-                        str[i++]=character2;
-
-                    }
-                    else{
-                        break;
-                    }
-                }
-                str[i]='\0';
-                sum+=atoll(str);
         }
-     }
+
+        if (buffer_used_bytes(&circbuf) > 0){
+            int size = buffer_used_bytes(&circbuf);
+            char str[size + 1];
+            for (int i = 0; i < size; i++)
+                str[i] = buffer_pop(&circbuf);
+            str[size] = '\0';
+            sum += (unsigned int)atoll(str);  // 32-bit wrap
+        }
+
         buffer_deallocate(&circbuf);
-        return sum;
-}
+        return (long long)sum;  // cast to long long for return
+    }
+
+    
 
     int main(int argc, char* argv[]){
         const char* file = "int_text_small.txt";
