@@ -3,6 +3,7 @@
     #include <stdlib.h>
     #include <fcntl.h>
     #include <unistd.h>
+    #include <time.h>
     #include <string.h>
     #include "circularBuffer.h"
 
@@ -111,6 +112,7 @@
             return 1;
         }
 
+        
         
         long long sum;
         if (strcmp(mode, "binary") == 0) {
