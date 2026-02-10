@@ -25,15 +25,17 @@ char **split_command(char *line)
             tmp++;
         if (*tmp) {
             count++;
-            while (*tmp && *tmp != ' ')
+            while (*tmp && *tmp != ' '){ 
                 tmp++;
+            }
         }
     }
 
     /* Allocate argument vector (+1 for NULL terminator) */
     argv = malloc((count + 1) * sizeof(char *));
-    if (!argv)
+    if (!argv){
         return NULL;
+    }
 
     /* Second pass: split string */
     size_t i = 0;
