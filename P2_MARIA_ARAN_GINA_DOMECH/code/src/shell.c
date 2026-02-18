@@ -16,41 +16,47 @@ int main(void){
         if (fgets(line, sizeof(line),stdin)==NULL){ //no input
             break;
         }
+        
+        line[strcspn(line, "\n")] = '\0';
 
         if(strcmp(line,"EXIT")==0){
             break; //if execution mode exit, end the process
         }
 
         else if (strcmp(line,"SINGLE")==0){
-            fgets(command1, sizeof(command1),stdin)
+            fgets(command1, sizeof(command1),stdin);
+            command1[strcspn(command1, "\n")] = '\0';
             char** argv=split_command(command1);
 
             pid_t pid=fork();
             if(pid==0){
                 execvp(argv[0],argv);
-                perror('argv');
+                perror("execvp");
                 exit(1);
             }
-            waitpid(pid,NULL,0)
+            waitpid(pid,NULL,0);
             free(argv);
         }
 
         else if (strcmp(line,"CONCURRENT")==0){
             fgets(command1,sizeof(command1),stdin);
+            command1[strcspn(command1, "\n")] = '\0';
             char** argv=split_command(command1);
 
             pid_t pid= fork();
             if(pid==0){
                 execvp(argv[0],argv);
-                perror('argv');
+                perror("execvp");
                 exit(1);
             }
             free(argv); //no waitpid here since there is background execution due to concurrency
         }
 
-        else if (strcmp(line,"PIPE")==0){
+        else if (strcmp(line,"PIPED")==0){
             fgets(command1, sizeof(command1), stdin);
+            command1[strcspn(command1, "\n")] = '\0';
             fgets(command2, sizeof(command2), stdin);
+            command2[strcspn(command2, "\n")] = '\0';
 
             char **argv1 = split_command(command1);
             char **argv2 = split_command(command2);
