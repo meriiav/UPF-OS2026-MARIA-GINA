@@ -30,7 +30,6 @@ int main(void){
 
             pid_t pid=fork();
             if(pid==0){
-                execvp(argv[0],argv);
                 perror("execvp");
                 exit(1);
             }
@@ -45,7 +44,7 @@ int main(void){
 
             pid_t pid= fork();
             if(pid==0){
-                execvp(argv[0],argv);
+                execvp(argv[0],argv); //replaces the process with by new program
                 perror("execvp");
                 exit(1);
             }
@@ -65,11 +64,11 @@ int main(void){
             pipe(fd);
 
             pid_t pid1 = fork();
-            if (pid1 == 0) {
+            if (pid1 == 0) { 
                 //child1: writes to pipe
                 dup2(fd[1], STDOUT_FILENO);
-                close(fd[0]);
-                close(fd[1]);
+                close(fd[0]); // 0 is read
+                close(fd[1]); // 1 is write
 
                 execvp(argv1[0], argv1);
                 perror("execvp");
