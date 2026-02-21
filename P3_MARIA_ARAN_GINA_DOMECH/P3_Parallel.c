@@ -13,9 +13,8 @@
 
 typedef struct {
  char* path;
- int offset; // Offset from the beginning of the file (including header)
+ int offset; //offset from the beginning of the file (including header)
  int bytesToRead;
- int localhist[HISTSIZE]; //each thread has its own local histogram
 } ThreadInfo;
 
 //global histogram and mutex for merging the final histogram
@@ -24,36 +23,31 @@ pthread_mutex_t hist_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 //thread function, executed by each thread
 void* readFilePart(void* arg) {
-    ThreadInfo* info = ((ThreadInfo*) arg); //local copy of the information of the thread
+    ThreadInfo* info = (ThreadInfo*) arg;
 
     char buffer[BUFFERSIZE];
-    int fd=open(info.path, O_RDONLY);
-    if(fd<0){
+    int fd = open(info->path, O_RDONLY);
+    if (fd < 0) {
         pthread_exit(NULL);
     }
 
-    lseek(fd,info.offset,SEEK_SET); //position pointer at the offset which corresponds
+    lseek(fd, info->offset, SEEK_SET); //moveing thread start position
+    int remaining = info->bytesToRead;
 
-    int remaining=info.bytesToRead; //how many bytes remain to be read?
+    while (remaining > 0) {
+        int toRead = (remaining > BUFFERSIZE) ? BUFFERSIZE : remaining;
+        int n = read(fd, buffer, toRead);
+        if (n <= 0) break;
 
-    while(remaining>0){
-        int toRead;
-        if(remaining>BUFFERSIZE){
-            toRead=BUFFERSIZE; //read maximum BUFFERSIZE each time
+        //update global histogram using mutex
+        pthread_mutex_lock(&hist_mutex);
+        for (int i = 0; i < n; i++) {
+            unsigned char pixel = buffer[i];
+            globalhist[pixel]++;
         }
-        else{
-            toRead=remaining; //last call can be less
-        }
+        pthread_mutex_unlock(&hist_mutex);
 
-        int n= read(fd,buffer,toRead);
-        if(n<=0) break;
-        
-        //count frequency of each pixel in the buffer
-        for (int i= 0; i<n; i++){
-            unsigned char pixel= buffer[i];
-            info->localhist[pixel]++; //increment local histogram
-        }
-        remaining -= n; 
+        remaining -= n;
     }
 
     close(fd);
@@ -61,7 +55,6 @@ void* readFilePart(void* arg) {
     }
 
 int main(int argc, char *argv[]) {
-  
     //pthread_t thread;
     //ThreadInfo info = {"test.txt", 0, 20};  // Example: read first 20 bytes
     //expected usage: program input.pgm output.txt num_threads
@@ -77,7 +70,7 @@ int main(int argc, char *argv[]) {
 
     int width, height, maxval;
 
-    int headerBytes=parsePGM(inputPath, &width, &height,&maxval); //function for reading PGM header (already given)
+    int headerBytes=parse_pgm_header(inputPath, &width, &height,&maxval); //function for reading PGM header (already given)
     if(headerBytes<0){
         return 1;
     }
@@ -96,17 +89,17 @@ int main(int argc, char *argv[]) {
     }
 
     //creating threads
-    for(int i = 0; i < numThreads; i++){
+    int currentOffset = headerBytes;
+    
+    for(int i = 0; i < numThreads; i++) {
 
         infos[i].path = inputPath;
-        infos[i].offset = headerBytes+i*chunk;
+        infos[i].offset = currentOffset;
 
+        infos[i].bytesToRead = chunk;
         if(i == numThreads - 1)
-            infos[i].bytesToRead = totalPixels-i*chunk;
-        else
-            infos[i].bytesToRead = chunk;
-
-        memset(infos[i].localhist, 0, sizeof(infos[i].localhist));
+            infos[i].bytesToRead += totalPixels - i * chunk;
+        currentOffset += infos[i].bytesToRead;
 
         pthread_create(&threads[i], NULL, readFilePart, &infos[i]);
     }
@@ -116,19 +109,13 @@ int main(int argc, char *argv[]) {
         pthread_join(threads[i],NULL);
     }
 
-    //joining histograms
-    for(int i = 0; i < numThreads; i++){
-        for(int j = 0; j < HISTSIZE; j++){
-            globalhist[j] += infos[i].localhist[j];
-        }
-    }
-
     //writing output
     FILE* out = fopen(outputPath, "w");
     if(!out) return 1;
     for(int i = 0; i < HISTSIZE; i++){
-        fprintf(out, "%d\n", globalhist[i]);
+        fprintf(out, "%d,%d\n", i, globalhist[i]);
     }
+    fprintf(out, "\n");
 
     //ending program
     fclose(out);
@@ -137,3 +124,8 @@ int main(int argc, char *argv[]) {
     return 0;
 
 }
+
+// gcc P3_parallel.c parsePGM.c -o build/computeHistogramSequential
+// build/computeHistogramSequential Data/heart.pgm Data/histogram_heart.txt
+// python showHistogram.py Data/histogram_heart.txt
+// python3 showHistogram.py Data/histogram_heart.txt
