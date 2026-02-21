@@ -57,8 +57,6 @@ void* readFilePart(void* arg) {
     }
 
     close(fd);
-
-// falta  copiar l'histograma original a l'estruct original o algo aixi
     pthread_exit(NULL);
     }
 
@@ -84,7 +82,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    memset(globalhist, 0, sizeof(globalhist)); //new
+    memset(globalhist, 0, sizeof(globalhist)); //set to zero
 
     int totalPixels = width * height; //total number of pixels to read
     int chunk  = totalPixels / numThreads ; //num of pixels per thread
@@ -92,9 +90,8 @@ int main(int argc, char *argv[]) {
     //create arrays for the threads and their info 
     pthread_t* threads = malloc(sizeof(pthread_t) * numThreads);
     ThreadInfo* infos = malloc(sizeof(ThreadInfo) * numThreads);
-    //int offset = headerBytes;
 
-    if (threads == NULL || infos == NULL){ //comprovar si el malloc ha functionat
+    if (threads == NULL || infos == NULL){ //malloc error
         return 1;
     }
 
