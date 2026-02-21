@@ -15,16 +15,16 @@ typedef struct {
  char* path;
  int offset; // Offset from the beginning of the file (including header)
  int bytesToRead;
- int localhist[HISTSIZE]; //each thread has its own histogram
+ int localhist[HISTSIZE]; //each thread has its own local histogram
 } ThreadInfo;
 
 //global histogram and mutex for merging the final histogram
 int globalhist[HISTSIZE];
 pthread_mutex_t hist_mutex = PTHREAD_MUTEX_INITIALIZER; 
 
-//thread function , which will be executed by each thread
+//thread function, executed by each thread
 void* readFilePart(void* arg) {
-    ThreadInfo info = *((ThreadInfo*) arg); //make a local copy of the information of the thread
+    ThreadInfo* info = ((ThreadInfo*) arg); //local copy of the information of the thread
 
     char buffer[BUFFERSIZE];
     int fd=open(info.path, O_RDONLY);
@@ -42,20 +42,18 @@ void* readFilePart(void* arg) {
             toRead=BUFFERSIZE; //read maximum BUFFERSIZE each time
         }
         else{
-            toRead=remaining; // the last lecture can be less
+            toRead=remaining; //last call can be less
         }
 
         int n= read(fd,buffer,toRead);
-            if(n<=0){
-                break;
-            }
+        if(n<=0) break;
         
         //count frequency of each pixel in the buffer
         for (int i= 0; i<n; i++){
             unsigned char pixel= buffer[i];
-            info.localhist[pixel]++; //increment local histogram
+            info->localhist[pixel]++; //increment local histogram
         }
-        remaining = remaining - n; 
+        remaining -= n; 
     }
 
     close(fd);
@@ -79,33 +77,66 @@ int main(int argc, char *argv[]) {
         return 1; 
     }
 
-    int width, height, maxval ;
+    int width, height, maxval;
 
     int headerBytes=parsePGM(inputPath, &width, &height,&maxval); //function for reading PGM header (already given)
-    if(headerBytes)<0{
+    if(headerBytes<0){
         return 1;
     }
 
+    memset(globalhist, 0, sizeof(globalhist)); //new
 
     int totalPixels = width * height; //total number of pixels to read
+    int chunk  = totalPixels / numThreads ; //num of pixels per thread
 
     //create arrays for the threads and their info 
     pthread_t* threads = malloc(sizeof(pthread_t) * numThreads);
     ThreadInfo* infos = malloc(sizeof(ThreadInfo) * numThreads);
+    //int offset = headerBytes;
 
-    if (threads == NULL || infos == NULL) //comprovar si el malloc ha functionat
+    if (threads == NULL || infos == NULL){ //comprovar si el malloc ha functionat
         return 1;
-    int chunk  = totalPixels / numThreads ; //num of pixels per thread
-    int offset = headerBytes;
+    }
 
-//falta crear els threads
+    //creating threads
+    for(int i = 0; i < numThreads; i++){
 
-    //esperar als altres threads
+        infos[i].path = inputPath;
+        infos[i].offset = headerBytes+i*chunk;
+
+        if(i == numThreads - 1)
+            infos[i].bytesToRead = totalPixels-i*chunk;
+        else
+            infos[i].bytesToRead = chunk;
+
+        memset(infos[i].localhist, 0, sizeof(infos[i].localhist));
+
+        pthread_create(&threads[i], NULL, readFilePart, &infos[i]);
+    }
+
+    //waiting threads
     for(int i= 0; i<numThreads; i++){
         pthread_join(threads[i],NULL);
     }
 
-//juntar els histogrames
+    //joining histograms
+    for(int i = 0; i < numThreads; i++){
+        for(int j = 0; j < HISTSIZE; j++){
+            globalhist[j] += infos[i].localhist[j];
+        }
+    }
 
-//i escriure l'output
+    //writing output
+    FILE* out = fopen(outputPath, "w");
+    if(!out) return 1;
+    for(int i = 0; i < HISTSIZE; i++){
+        fprintf(out, "%d\n", globalhist[i]);
+    }
+
+    //ending program
+    fclose(out);
+    free(threads);
+    free(infos);
+    return 0;
+
 }
