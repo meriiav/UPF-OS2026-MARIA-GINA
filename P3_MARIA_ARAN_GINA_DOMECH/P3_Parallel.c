@@ -60,7 +60,7 @@ void* readFilePart(void* arg) {
 
     close(fd);
 
-    // falta  copiar l'histograma original a l'estruct original oa algo aixi
+// falta  copiar l'histograma original a l'estruct original o algo aixi
     pthread_exit(NULL);
     }
 
@@ -98,14 +98,14 @@ int main(int argc, char *argv[]) {
     int chunk  = totalPixels / numThreads ; //num of pixels per thread
     int offset = headerBytes;
 
-    //falta crear els threads
+//falta crear els threads
 
     //esperar als altres threads
     for(int i= 0; i<numThreads; i++){
         pthread_join(threads[i],NULL);
     }
 
-    //juntar els histogrames
+//juntar els histogrames
 
-    //i escriure l'output
+//i escriure l'output
 }
