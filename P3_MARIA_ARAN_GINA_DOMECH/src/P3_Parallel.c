@@ -6,6 +6,7 @@
 #include <ctype.h>
 #include <fcntl.h>
 
+
 #include "parsePGM.h"
 
 #define BUFFERSIZE 1024
@@ -24,35 +25,44 @@ pthread_mutex_t hist_mutex = PTHREAD_MUTEX_INITIALIZER;
 //thread function, executed by each thread
 void* readFilePart(void* arg) {
     ThreadInfo* info = (ThreadInfo*) arg;
+    int localhist[HISTSIZE] = {0};
 
     char buffer[BUFFERSIZE];
     int fd = open(info->path, O_RDONLY);
     if (fd < 0) {
+        perror("open");
         pthread_exit(NULL);
     }
 
-    lseek(fd, info->offset, SEEK_SET); //moveing thread start position
-    int remaining = info->bytesToRead;
+    if(lseek(fd, info->offset, SEEK_SET) < 0) {
+        perror("lseek");
+        close(fd);
+        pthread_exit(NULL);
+    }
 
+    int remaining = info->bytesToRead;
     while (remaining > 0) {
         int toRead = (remaining > BUFFERSIZE) ? BUFFERSIZE : remaining;
         int n = read(fd, buffer, toRead);
         if (n <= 0) break;
 
-        //update global histogram using mutex
-        pthread_mutex_lock(&hist_mutex);
         for (int i = 0; i < n; i++) {
             unsigned char pixel = buffer[i];
-            globalhist[pixel]++;
+            localhist[pixel]++;
         }
-        pthread_mutex_unlock(&hist_mutex);
-
         remaining -= n;
     }
 
     close(fd);
-    pthread_exit(NULL);
+
+    pthread_mutex_lock(&hist_mutex);
+    for (int i = 0; i < HISTSIZE; i++) {
+        globalhist[i] += localhist[i];
     }
+    pthread_mutex_unlock(&hist_mutex);
+
+    pthread_exit(NULL);
+}
 
 int main(int argc, char *argv[]) {
     //pthread_t thread;
@@ -77,7 +87,7 @@ int main(int argc, char *argv[]) {
 
     memset(globalhist, 0, sizeof(globalhist)); //set to zero
 
-    int totalPixels = width * height; //total number of pixels to read
+    long totalPixels = width * height; //total number of pixels to read
     int chunk  = totalPixels / numThreads ; //num of pixels per thread
 
     //create arrays for the threads and their info 
@@ -121,6 +131,7 @@ int main(int argc, char *argv[]) {
     fclose(out);
     free(threads);
     free(infos);
+    pthread_mutex_destroy(&hist_mutex);
     return 0;
 
 }
