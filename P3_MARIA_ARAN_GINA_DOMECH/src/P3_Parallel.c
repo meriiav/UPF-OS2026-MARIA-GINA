@@ -42,7 +42,7 @@ void* readFilePart(void* arg) {
 
     int remaining = info->bytesToRead;
     while (remaining > 0) {
-        int toRead = (remaining > BUFFERSIZE) ? BUFFERSIZE : remaining;
+        int toRead = (remaining > BUFFERSIZE) ? BUFFERSIZE : remaining; // condition ? value if true: value if false
         int n = read(fd, buffer, toRead);
         if (n <= 0) break;
 
