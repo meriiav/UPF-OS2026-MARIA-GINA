@@ -61,7 +61,7 @@ void* readFilePart(void* arg) {
     }
     pthread_mutex_unlock(&hist_mutex);
 
-    pthread_exit(NULL);
+    pthread_exit(NULL);  
 }
 
 int main(int argc, char *argv[]) {
