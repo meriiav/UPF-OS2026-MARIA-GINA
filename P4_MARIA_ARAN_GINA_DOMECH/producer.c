@@ -1,9 +1,19 @@
 #include producer.h
+#include "buffer.h"  // contains buffer, semaphores, mutexes
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <pthread.h>
+#include <semaphore.h>
 
 int blockSize = 1024 * 16;
 // Position from which the Producer will try to read a block. This needs to be initialised to just after the header.
 int readPos; 
 pthread_mutex_t lock_read;
+
+extern sem_t full;   //counts filled slots
+extern sem_t empty;  //counts empty slots
 
 void * Producer (void* arg) {
     char * path = (char *) arg; // Need to pass the file as a path
@@ -24,32 +34,29 @@ void * Producer (void* arg) {
             free(buff);
             break;
         }
-        
-        //Consumer part of adding to the buffer: need to 
-        while (elementsInBuffer == nBuffer){ 
-            pthread_cond_wait(&not_full, &lock_buffer);
-        }
+
+        //WAIT FOR EMPTY SLOT
+        sem_wait(&empty);                  // wait if buffer is full
+
+        pthread_mutex_lock(&lock_buffer);  // lock buffer to safely insert
         buffer[tail] = buff;
         bufferSizes[tail] = nBytesRead;
-
         tail = (tail + 1) % nBuffer;
         elementsInBuffer++;
-
-        pthread_cond_signal(&not_empty);
         pthread_mutex_unlock(&lock_buffer);
+
+        sem_post(&full);                   // signal consumer there is a new item
     }
     // If exiting, make sure you wake up all sleeping threads before exiting 
     // (and that they don't go to sleep if the finishes)
 
     close(fd);
 
+    //LAST PRODUCER
     pthread_mutex_lock(&lock_buffer);
     activeProducers--;
-
-    if(activeProducers == 0)
-        pthread_cond_broadcast(&not_empty);
-
     pthread_mutex_unlock(&lock_buffer);
+    sem_post(&full);  // wake any consumer that might be waiting
 
     pthread_exit(NULL);
 }
